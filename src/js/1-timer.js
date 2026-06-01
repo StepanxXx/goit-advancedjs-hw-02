@@ -1,4 +1,4 @@
-'use srict';
+'use strict';
 
 // Описаний в документації
 import flatpickr from 'flatpickr';
@@ -41,20 +41,27 @@ class Timer {
     this.startTime = this.getStartTime();
 
     if (!this.checkStartTime()) {
-      return;
+      return false;
     }
 
-    this.intervalId = setInterval(() => {
+    const tick = () => {
       const currentTime = Date.now();
       const deltaTime = this.startTime - currentTime;
+
       if (deltaTime <= 0) {
         this.reset();
         this.afterEndAction?.();
         return;
       }
+
       const time = this.convertMs(deltaTime);
       this.onTick(time);
-    }, 1000);
+    };
+
+    tick();
+    this.intervalId = setInterval(tick, 1000);
+
+    return true;
   }
 
   stop() {
@@ -69,7 +76,7 @@ class Timer {
   }
 
   checkStartTime(startTime = this.startTime) {
-    if (startTime < Date.now()) {
+    if (!Number.isFinite(startTime) || startTime <= Date.now()) {
       this.showAlert('Please choose a date in the future');
       this.reset();
       return false;
@@ -123,9 +130,16 @@ function addLeadingZero(value) {
 }
 
 startBtnEl.addEventListener('click', () => {
+  const hasStarted = timer.start();
+
+  if (!hasStarted) {
+    timerInput.disabled = false;
+    startBtnEl.disabled = true;
+    return;
+  }
+
   startBtnEl.disabled = true;
   timerInput.disabled = true;
-  timer.start();
 });
 
 flatpickr(timerInput, {
@@ -134,6 +148,11 @@ flatpickr(timerInput, {
   defaultDate: new Date(),
   minuteIncrement: 1,
   onClose(selectedDates) {
+    if (selectedDates.length === 0) {
+      startBtnEl.disabled = true;
+      return;
+    }
+
     const startTime = selectedDates[0].getTime();
     const isStartTimeValid = timer.checkStartTime(startTime);
     startBtnEl.disabled = !isStartTimeValid;
